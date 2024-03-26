@@ -29,8 +29,9 @@ fi
 
 for i in `seq 1 $NUMNODES`
 do
-	PRIVKEYFILE="$KEYPATH/Node$i.priv"
-	PUBKEYFILE="$KEYPATH/Node$i.pub"
+	j=$((i-1))
+	PRIVKEYFILE="$KEYPATH/R$j.priv"
+	PUBKEYFILE="$KEYPATH/R$j.pub"
 
 	(
 	 # NIST says secp224r1 is as strong as rsa-2048.
