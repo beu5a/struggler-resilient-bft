@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// TODO : improve concurrency control
 const ViewID = 0
 
 type Node struct {
@@ -15,14 +16,14 @@ type Node struct {
 	info       *NodeInfo
 	privateKey *ed25519.PrivateKey
 	knownNodes []*NodeInfo
-	clientNode *ClientNodeInfo
+	//clientNode *ClientNodeInfo
 	sequenceID int
 	View       int
 	msgQueue   chan []byte
 	hub        *NetworkingHub
 	//stateTransferMsgQ chan []byte
 	//clientMsgQ        chan []byte adding and removing messages from the queue will be handled by the hub
-	msgLog      *MsgLog // https://github.com/uber-go/zap
+	msgLog      *MsgLog //Cons message log, add log for state transfer
 	requestPool map[string]*RequestMsg
 	mutex       sync.Mutex
 }
@@ -40,10 +41,10 @@ func NewNode(nodeID int) *Node {
 		Replicas[nodeID],
 		PrivateKey,
 		Replicas,
-		ClientNode,
+		//ClientNode,
 		0,
 		ViewID,
-		make(chan []byte),
+		make(chan []byte, 1000),
 		nil,
 		&MsgLog{
 			make(map[string]map[int]bool),
@@ -124,6 +125,7 @@ func (node *Node) handleRequest(payload []byte, sig []byte) {
 		Logger.Error("Sign prePrepareMsg failed in Request Handling:%v", err)
 		return
 	}
+
 	msg := ComposeMsg(hPrePrepare, prePrepareMsg, msgSig)
 	node.mutex.Lock()
 
@@ -145,19 +147,22 @@ func (node *Node) handlePrePrepare(payload []byte, sig []byte) {
 		Logger.Error("Error happened in handle PrePrepare:%v", err)
 		return
 	}
+
 	pnodeId := node.findPrimaryNode()
 	logHandleMsg(hPrePrepare, prePrepareMsg, pnodeId)
 	msgPubkey := node.findNodePubkey(pnodeId)
 	if msgPubkey == nil {
 		Logger.Error("Find node pubkey failed in handle PrePrepare\n")
-		return
 	}
 	// verify msg's signature
+	copy_pk := *msgPubkey
 
-	v := verifySignatrue(prePrepareMsg, sig, msgPubkey)
+	v := verifySignatrue(prePrepareMsg, sig, &copy_pk)
+
 	if !v {
 		Logger.Error("Verify signature failed in handle PrePrepare\n")
-		return
+		panic("PAAAANICCCCCC")
+
 	}
 
 	// verify prePrepare's digest is equal to request's digest
@@ -214,6 +219,7 @@ func (node *Node) handlePrepare(payload []byte, sig []byte) {
 	}
 	logHandleMsg(hPrepare, prepareMsg, prepareMsg.NodeID)
 	pubkey := node.findNodePubkey(prepareMsg.NodeID)
+
 	v := verifySignatrue(prepareMsg, sig, pubkey)
 	if !v {
 		Logger.Error("Verify signature failed in handle Prepare\n")
@@ -338,7 +344,10 @@ func (node *Node) handleCommit(payload []byte, sig []byte) {
 			done,
 		}
 		logBroadcastMsg(hReply, replyMsg)
-		//send(ComposeMsg(hReply, replyMsg, []byte{}), node.clientNode.url)
+		// normally we can extract client ID from requestMsg
+		//sendMsg := ComposeMsg(hReply, replyMsg, []byte{})
+		//node.sendToClient(sendMsg)
+		Logger.Info("Reply to client:%v\n", replyMsg)
 		node.mutex.Lock()
 		node.msgLog.replyLog[commitMsg.Digest] = true
 		node.mutex.Unlock()
@@ -387,6 +396,10 @@ func (node *Node) broadcast(data []byte) {
 	node.hub.broadcast(data)
 }
 
+func (node *Node) sendToClient(data []byte) {
+	node.hub.sendToClient(data)
+}
+
 // do we need fast access to the public key of a node?
 func (node *Node) findNodePubkey(nodeId int) *ed25519.PublicKey {
 	for _, knownNode := range node.knownNodes {
@@ -399,9 +412,10 @@ func (node *Node) findNodePubkey(nodeId int) *ed25519.PublicKey {
 
 // Useless function ??
 func (node *Node) signMessage(msg interface{}) ([]byte, error) {
-	sig, err := signMessage(msg, node.privateKey)
+	sk_copy := *node.privateKey
+	sig, err := signMessage(msg, &sk_copy)
 	if err != nil {
-		fmt.Printf("sign message happened error:%v\n", err)
+		Logger.Error("Sign message failed:%v", err)
 		return nil, err
 	}
 	return sig, nil

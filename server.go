@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
@@ -51,7 +50,7 @@ func (s *Server) Start() {
 	time.Sleep(10 * time.Second)
 
 	if s.node.nodeID == 0 {
-		go s.embeddedClient()
+		go s.testClient()
 	}
 
 	// Start a goroutine that blocks on waiting for signals.
@@ -68,29 +67,36 @@ func (s *Server) Start() {
 	// Block the main goroutine until a value is received on the 'done' channel.
 	<-done
 	fmt.Println("Program stopped.")
-
 }
 
-func (s *Server) embeddedClient() {
-	for i := 0; i < 1; i++ {
-		msg := fmt.Sprintf("%d work to do!", i)
-		req := Request{
-			msg,
-			hex.EncodeToString(generateDigest(msg)),
-		}
-		reqmsg := &RequestMsg{
-			"solve",
-			int(time.Now().Unix()),
-			10,
-			req,
-		}
-		sig := make([]byte, SignatureLength)
-		_, err := rand.Read(sig)
-		if err != nil {
-			panic(err)
-		}
-		req_msg := ComposeMsg(hRequest, reqmsg, sig)
-		s.node.msgQueue <- req_msg
+func (s *Server) testClient() {
+	// Generate 100 requests
+	req_size := 1024
+	msgb := make([]byte, req_size)
+	for i := 0; i < 1024; i++ {
+		msgb[i] = "a"[0]
 	}
 
+	msg := "Hello, World!"
+	digest := hex.EncodeToString(generateDigest(msg))
+
+	req := Request{
+		msg,
+		digest,
+	}
+	reqmsg := &RequestMsg{
+		"Operation",
+		0,
+		10,
+		req,
+	}
+	sig, _ := signMessage(reqmsg, PrivateKey)
+	//req_msg := ComposeMsg(hRequest, reqmsg, sig)
+	for i := 0; i < 4; i++ {
+		reqmsg.Timestamp = int(time.Now().Unix())
+		req_msg := ComposeMsg(hRequest, reqmsg, sig)
+		s.node.msgQueue <- req_msg
+		//time.Sleep(1000 * time.Microsecond)
+
+	}
 }

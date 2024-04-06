@@ -11,7 +11,8 @@ type NetworkingHub struct {
 	node                 *Node // Use the fully qualified type name
 	consensusConnections []*getty.Session
 	//stateTransferConnections []*getty.Session
-	mu sync.Mutex // Protects connections
+	clientConnections []*getty.Session
+	mu                sync.Mutex // Protects connections
 }
 
 func NewNetworkingHub(node *Node) *NetworkingHub {
@@ -87,11 +88,28 @@ func (h *NetworkingHub) listenForConsensusConnections() {
 	})
 }
 
-func (h *NetworkingHub) establishStateTransferConnections()          {}
-func (h *NetworkingHub) listenForStateTransferConnections()          {}
-func (h *NetworkingHub) listenForClientConnections()                 {}
-func (h *NetworkingHub) sendConsensusMsg(msg ConsensusMsg, dest int) {}
-func (h *NetworkingHub) broadcastConsensusMsg(msg ConsensusMsg)      {}
+func (h *NetworkingHub) establishStateTransferConnections() {}
+func (h *NetworkingHub) listenForStateTransferConnections() {}
+
+// now we only support one client connection
+func (h *NetworkingHub) listenForClientConnections() {
+	server := getty.NewTCPServer(
+		getty.WithLocalAddress(fmt.Sprintf(":%d", h.node.info.clientPort)))
+
+	server.RunEventLoop(func(session getty.Session) error {
+		session.SetEventListener(
+			&ClientSessionHandler{
+				hub: h,
+			},
+		)
+		session.SetPkgHandler(&DefaultPackageHandler{})
+
+		return nil
+	})
+}
+
+//func (h *NetworkingHub) sendConsensusMsg(msg ConsensusMsg, dest int) {}
+//func (h *NetworkingHub) broadcastConsensusMsg(msg ConsensusMsg)      {}
 
 /*
 func (h *NetworkingHub) sendStateTransferMsg(msg StateTransferMsg, dest int) {
@@ -104,10 +122,19 @@ func (h *NetworkingHub) broadcastStateTransferMsg(msg StateTransferMsg) {
 */
 
 func (h *NetworkingHub) broadcast(bytes []byte) {
+	// do we need to lock the hub here?
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	for _, session := range h.consensusConnections {
+		s := *session
+		s.Send(bytes)
+	}
+}
+
+func (h *NetworkingHub) sendToClient(bytes []byte) {
+	// do we need to lock the hub here?
+	for _, session := range h.clientConnections {
 		s := *session
 		s.Send(bytes)
 	}

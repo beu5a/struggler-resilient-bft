@@ -16,16 +16,16 @@ go build
 ### Start four pbft node
 
 ```shell script
-./simplePBFT pbft node -id 0
-./simplePBFT pbft node -id 1
-./simplePBFT pbft node -id 2
-./simplePBFT pbft node -id 3
+./sr-bft pbft node -id 0
+./sr-bft pbft node -id 1
+./sr-bft pbft node -id 2
+./sr-bft pbft node -id 3
 ```
 
 ### Start pbft client to send message
 
 ```shell script
-./simplePBFT pbft client
+./sr-bft pbft client
 ```
 
 

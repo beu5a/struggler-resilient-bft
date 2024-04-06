@@ -157,17 +157,14 @@ func SplitMsg(bmsg []byte) (HeaderMsg, []byte, []byte) {
 	return header, payload, signature
 }
 
-// logging
-func printMsgLog(msg Msg) {
-	fmt.Println(msg.String())
-}
+// logging, TODO: MODIFY THIS OR REMOVE IT
 
 func logHandleMsg(header HeaderMsg, msg Msg, from int) {
 	//fmt.Printf("Receive %s msg from localhost:%d\n", header, nodeIdToPort(from))
-	printMsgLog(msg)
+	//printMsgLog(msg)
 }
 
 func logBroadcastMsg(header HeaderMsg, msg Msg) {
-	fmt.Printf("send/broadcast %s msg \n", header)
-	printMsgLog(msg)
+	//fmt.Printf("send/broadcast %s msg \n", header)
+	//printMsgLog(msg)
 }

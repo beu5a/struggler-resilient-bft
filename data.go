@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var ClientNode *ClientNodeInfo
 var Replicas []*NodeInfo
 var SystemConfig map[string]int
 var PrivateKey *ed25519.PrivateKey

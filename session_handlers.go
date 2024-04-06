@@ -50,3 +50,24 @@ func (h *StateTransferSessionHandler) OnError(session getty.Session, err error) 
 func (h *StateTransferSessionHandler) OnClose(session getty.Session)                    {}
 func (h *StateTransferSessionHandler) OnMessage(session getty.Session, pkg interface{}) {}
 func (h *StateTransferSessionHandler) OnCron(session getty.Session)                     {}
+
+// -------------------------------------------------Client Session Handlers ---------------------------------------------------------------------------------
+type ClientSessionHandler struct {
+	hub *NetworkingHub
+}
+
+func (h *ClientSessionHandler) OnOpen(session getty.Session) error {
+	Logger.Infof("New Client connection from %s", session.RemoteAddr())
+	return nil
+}
+func (h *ClientSessionHandler) OnError(session getty.Session, err error) {
+	Logger.Errorf("Error on client connection from %s: %v", session.RemoteAddr(), err)
+}
+func (h *ClientSessionHandler) OnClose(session getty.Session) {
+	Logger.Infof("Client connection from %s closed", session.RemoteAddr())
+}
+func (h *ClientSessionHandler) OnMessage(session getty.Session, pkg interface{}) {
+	msg := pkg.([]byte)
+	h.hub.node.msgQueue <- msg
+}
+func (h *ClientSessionHandler) OnCron(session getty.Session) {}
